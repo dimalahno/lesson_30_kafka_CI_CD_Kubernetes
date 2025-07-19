@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-demo-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-demo-app
+  template:
+    metadata:
+      labels:
+        app: kafka-demo-app
+    spec:
+      containers:
+        - name: kafka-demo-app
+          image: kafka-demo-app:latest
+          ports:
+            - containerPort: 80

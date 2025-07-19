@@ -1,0 +1,61 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  DOCKER_IMAGE: my-kafka-app
+  DOCKER_TAG: $CI_COMMIT_SHORT_SHA
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - echo "Сборка Docker-образа..."
+    - docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+    - docker push $DOCKER_IMAGE:$DOCKER_TAG
+  only:
+    - master
+    - develop
+
+unit_tests:
+  stage: test
+  image: python:3.10.2
+  script:
+    - pip install --no-cache-dir -r requirements.txt
+    - pytest tests/unit
+  only:
+    - master
+    - develop
+
+integration_tests:
+  stage: test
+  image: docker:latest
+  services:
+    - docker:dind
+  before_script:
+    # Установка docker-compose внутри контейнера (если не установлен)
+    - apk add --no-cache docker-compose
+    # Поднимаем Kafka и ZooKeeper с помощью docker-compose
+    - docker-compose up -d
+    # Ожидаем инициализации сервисов (можно заменить на скрипт wait-for-it)
+    - sleep 15
+  script:
+    - echo "Запуск интеграционных тестов..."
+    - pip install --no-cache-dir -r requirements.txt
+    - pytest tests/integration
+  only:
+    - master
+    - develop
+
+deploy:
+  stage: deploy
+  image: docker:latest
+  script:
+    - echo "Деплой в тестовую/продакшн среду..."
+    - ./deploy_script.sh $DOCKER_IMAGE:$DOCKER_TAG
+  only:
+    - master
